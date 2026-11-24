@@ -1,0 +1,621 @@
+{
+  "info": {
+    "name": "Work Flow — Smart Career Path Tracking System API",
+    "description": "Self-contained Postman v2.1 API Test Collection for Work Flow (Port 5001, workflow_career_db). Registers a clean QA user, verifies Login, Profile, Notifications, Jobs (XpressJobs.lk), Saved Jobs, Applications CRUD + Status History, Dashboard KPIs & Search, CVs, and Reminders CRUD — with automated pm.test() assertions on every request. Researcher: Sinthuya Gnanakaran | Supervisor: Eng. Nisanthan | BIET Campus (2026)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5001/api" },
+    { "key": "testEmail", "value": "" },
+    { "key": "testPassword", "value": "WorkFlow2026" },
+    { "key": "token", "value": "" },
+    { "key": "createdAppId", "value": "" },
+    { "key": "createdReminderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "GET API & MySQL Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Database is connected to workflow_career_db', () => {",
+                  "  pm.expect(json.status).to.eql('ok');",
+                  "  pm.expect(json.database).to.eql('connected');",
+                  "  pm.expect(json.dbName).to.eql('workflow_career_db');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Authentication & Profile",
+      "item": [
+        {
+          "name": "POST Register QA User",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const uniqueEmail = 'workflow.qa.' + Date.now() + '@biet.lk';",
+                  "pm.collectionVariables.set('testEmail', uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration returns 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('JWT token and created user returned', () => {",
+                  "  pm.expect(json.token).to.be.a('string').and.not.be.empty;",
+                  "  pm.expect(json.user.email).to.eql(pm.collectionVariables.get('testEmail'));",
+                  "});",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Sinthuya QA Test\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"university\": \"BIET Campus\",\n  \"interested_field\": \"Software Engineering\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "POST Login (Verify JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('JWT token returned on login', () => {",
+                  "  pm.expect(json.token).to.be.a('string').and.not.be.empty;",
+                  "  pm.expect(json.user.email).to.eql(pm.collectionVariables.get('testEmail'));",
+                  "});",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "POST Forgot Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Forgot Password returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Reset link expires in 30 minutes', () => {",
+                  "  pm.expect(json.expiresInMinutes).to.eql(30);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "GET Current User Profile (/auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Profile returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns authenticated user details', () => {",
+                  "  pm.expect(json.user.email).to.eql(pm.collectionVariables.get('testEmail'));",
+                  "  pm.expect(json.user.university).to.eql('BIET Campus');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "PUT Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Update Profile returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Updated phone & university saved', () => {",
+                  "  pm.expect(json.user.phone_number).to.eql('+94 77 123 4567');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Sinthuya Gnanakaran\",\n  \"phone_number\": \"+94 77 123 4567\",\n  \"university\": \"BIET Campus\",\n  \"interested_field\": \"Software Engineering\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/profile"
+          }
+        },
+        {
+          "name": "PUT Update Notification Settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Notification settings saved (200 OK)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Updated user preferences returned', () => {",
+                  "  pm.expect(json.user.default_reminder_offset).to.eql('At the time');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notify_interviews\": true,\n  \"notify_deadlines\": true,\n  \"notify_followups\": false,\n  \"notify_daily_summary\": false,\n  \"default_reminder_offset\": \"At the time\",\n  \"daily_summary_time\": \"8:00 AM\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/notification-settings"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Jobs (XpressJobs.lk)",
+      "item": [
+        {
+          "name": "GET All Jobs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Jobs list returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('At least 6 XpressJobs.lk listings returned', () => {",
+                  "  pm.expect(json.jobs.length).to.be.at.least(6);",
+                  "  pm.expect(json.jobs[0].source).to.eql('XpressJobs.lk');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/jobs?type=All"
+          }
+        },
+        {
+          "name": "GET Job Details (ID = 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Job detail returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Job has XpressJobs.lk URL and description', () => {",
+                  "  pm.expect(json.job.title).to.eql('Software Engineer');",
+                  "  pm.expect(json.job.source_url).to.include('xpress.jobs');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/jobs/1"
+          }
+        },
+        {
+          "name": "POST Toggle Save Job (ID = 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Save job returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Job marked as saved', () => pm.expect(json.is_saved).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/jobs/1/save"
+          }
+        },
+        {
+          "name": "GET Saved Jobs List",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Saved jobs returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Saved job appears in list', () => {",
+                  "  pm.expect(json.jobs.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/jobs/saved/list"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Applications & Status History (Full CRUD)",
+      "item": [
+        {
+          "name": "POST Create Application (DD / MM / YYYY)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Application created (201 Created)', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Date normalized and application ID returned', () => {",
+                  "  pm.expect(json.application.application_id).to.be.a('number');",
+                  "  pm.expect(json.application.date_applied).to.eql('2026-06-25');",
+                  "});",
+                  "pm.collectionVariables.set('createdAppId', String(json.application.application_id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_name\": \"WSO2 Sri Lanka\",\n  \"job_title\": \"Software Engineer Intern\",\n  \"job_type\": \"Internship\",\n  \"application_status\": \"Applied\",\n  \"date_applied\": \"25 / 06 / 2026\",\n  \"job_url\": \"https://xpress.jobs/jobs?search=WSO2\",\n  \"notes\": \"Created via Postman API test\"\n}"
+            },
+            "url": "{{baseUrl}}/applications"
+          }
+        },
+        {
+          "name": "GET All Applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Applications list returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Created application appears in list', () => {",
+                  "  pm.expect(json.applications.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/applications"
+          }
+        },
+        {
+          "name": "PATCH Update Application Status (Logs History)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status updated (200 OK)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Status changed to Interview & history recorded', () => {",
+                  "  pm.expect(json.application_status).to.eql('Interview');",
+                  "  pm.expect(json.status_history.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"application_status\": \"Interview\",\n  \"changed_at\": \"28 / 06 / 2026\"\n}"
+            },
+            "url": "{{baseUrl}}/applications/{{createdAppId}}/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Dashboard & Search",
+      "item": [
+        {
+          "name": "GET Dashboard KPIs & Status Breakdown",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Dashboard returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('KPIs and 5 status counts exist', () => {",
+                  "  pm.expect(json.kpis.totalApplications).to.be.at.least(1);",
+                  "  pm.expect(json.kpis.upcomingInterviews).to.be.at.least(1);",
+                  "  pm.expect(json.statusBreakdown).to.have.all.keys('Applied', 'Under Review', 'Interview', 'Offer', 'Rejected');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/dashboard"
+          }
+        },
+        {
+          "name": "GET Global Search (Jobs & Applications)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Search returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns matching jobs and applications', () => {",
+                  "  pm.expect(json.jobs.length).to.be.above(0);",
+                  "  pm.expect(json.applications.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/dashboard/search?q=Software"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. CVs Management",
+      "item": [
+        {
+          "name": "GET Uploaded CVs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CVs list returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('CVs array returned', () => {",
+                  "  pm.expect(json.cvs).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/cvs"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Reminders & Cleanup",
+      "item": [
+        {
+          "name": "POST Create Reminder (At the time)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reminder created (201 Created)', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Reminder saved with At the time offset', () => {",
+                  "  pm.expect(json.reminder.reminder_id).to.be.a('number');",
+                  "  pm.expect(json.reminder.notify_offset).to.eql('At the time');",
+                  "});",
+                  "pm.collectionVariables.set('createdReminderId', String(json.reminder.reminder_id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Technical Interview - WSO2\",\n  \"reminder_type\": \"Interview\",\n  \"application_id\": {{createdAppId}},\n  \"reminder_datetime\": \"20 / 07 / 2026 10:30 AM\",\n  \"location\": \"Colombo, Sri Lanka.\",\n  \"notify_offset\": \"At the time\",\n  \"notes\": \"Bring portfolio and CV\"\n}"
+            },
+            "url": "{{baseUrl}}/reminders"
+          }
+        },
+        {
+          "name": "GET Upcoming Reminders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Upcoming reminders returns 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Created reminder appears in upcoming list', () => {",
+                  "  pm.expect(json.reminders.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/reminders?tab=upcoming"
+          }
+        },
+        {
+          "name": "PATCH Toggle Reminder Completed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reminder toggled (200 OK)', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Reminder marked completed', () => {",
+                  "  pm.expect(json.is_completed).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/reminders/{{createdReminderId}}/toggle"
+          }
+        },
+        {
+          "name": "DELETE Test Reminder",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Reminder deleted (200 OK)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/reminders/{{createdReminderId}}"
+          }
+        },
+        {
+          "name": "DELETE Test Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Application deleted (200 OK)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/applications/{{createdAppId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
